@@ -1,0 +1,8 @@
+{
+  "name": "websocket_server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:ansike/websocket_server.git",
+  "author": "ansike <984315765@qq.com>",
+  "license": "MIT"
+}
