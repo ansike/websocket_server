@@ -23,7 +23,9 @@ app.on("upgrade", (req, socket, head) => {
   console.log("upgrade");
   socket.on("data", (d) => {
     const data = decodeWsData(d);
-    console.log(data.payloadData?.toString());
+    const content = data.payloadData?.toString();
+    console.log(content);
+    socket.write(encodeWsData({ payloadData: `server get data: ${content}` }));
   });
 });
 app.listen(8080);
@@ -78,12 +80,44 @@ function decodeWsData(data) {
         // masking-key-octet-j = i MOD 4
         // transformed-octet-i = original-octet-i XOR masking-key-octet-j （XOR => exclusive OR）
         .map((byte, idx) => {
-          return byte ^ maskingKey[idx % 4];
+          return byte ^ frame.maskingKey[idx % 4];
         });
     } else {
       // 不需要解码，直接切割即可
       frame.payloadData = data.slice(start, start + frame.payloadLen);
     }
   }
+  return frame;
+}
+
+// server encode 不再需要mask，但装配数据的过程和decode类似
+function encodeWsData(data) {
+  let frame = [];
+  // 转换成buffer
+  const payload = data.payloadData ? Buffer.from(data.payloadData) : null;
+  const length = payload.length;
+  const isFinal = data.isFinal ?? true;
+  const opcode = data.opcode ?? 1;
+
+  // 第一个byte是FIN和opcode的组合
+  if (isFinal) {
+    frame.push((1 << 7) + opcode);
+  } else {
+    frame.push(opcode);
+  }
+  // 第2或2-3或2-9个byte描述data length
+  if (length < 126) {
+    frame.push(length);
+  } else if (length < 0xffff) {
+    frame.push(126, length >> 8, length & 0xff);
+  } else {
+    frame.push(127)
+    for (let i = 7; i >= 0; i--) {
+      frame.push(length & ((0xff << (i * 8)) >> (i * 8)));
+    }
+  }
+  frame = data.payloadData
+    ? Buffer.concat([Buffer.from(frame), payload])
+    : Buffer.from(frame);
   return frame;
 }

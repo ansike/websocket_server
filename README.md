@@ -8,13 +8,15 @@ node src/server.js
 
 2. 访问 html 页面
 
-观察 socket 服务已经建立，发送data 
+观察 socket 服务已经建立，发送 data
 
-server解析frame terminal 中输出client发送的数据`hello world`
+server 解析 frame terminal 中输出 client 发送的数据`hello world`
+https://www.rfc-editor.org/rfc/rfc6455#page-27
 
-单frame解析数据小白版
+单 frame 解析数据小白版
+
 ```javascript
-// https://www.rfc-editor.org/rfc/rfc6455#page-27
+// client=>server
 function decodeWsData(data) {
   let start = 0;
   let frame = {
@@ -64,7 +66,7 @@ function decodeWsData(data) {
         // masking-key-octet-j = i MOD 4
         // transformed-octet-i = original-octet-i XOR masking-key-octet-j （XOR => exclusive OR）
         .map((byte, idx) => {
-          return byte ^ maskingKey[idx % 4];
+          return byte ^ frame.maskingKey[idx % 4];
         });
     } else {
       // 不需要解码，直接切割即可
@@ -74,4 +76,38 @@ function decodeWsData(data) {
   return frame;
 }
 
+// server=>client
+function encodeWsData(data) {
+  let frame = [];
+  // 转换成buffer
+  const payload = data.payloadData ? Buffer.from(data.payloadData) : null;
+  const length = payload.length;
+  const isFinal = data.isFinal ?? true;
+  const opcode = data.opcode ?? 1;
+
+  // 第一个byte是FIN和opcode的组合
+  if (isFinal) {
+    // FIN标识位在该byte的第一位置
+    frame.push((1 << 7) + opcode);
+  } else {
+    frame.push(opcode);
+  }
+  if (length < 126) {
+    // 第2个byte描述data length
+    frame.push(length);
+  } else if (length < 0xffff) {
+    // 第2-3个byte描述data length
+    frame.push(126, length >> 8, length & 0xff);
+  } else {
+    // 第2-9个byte描述data length
+    frame.push(127);
+    for (let i = 7; i >= 0; i--) {
+      frame.push(length & ((0xff << (i * 8)) >> (i * 8)));
+    }
+  }
+  frame = data.payloadData
+    ? Buffer.concat([Buffer.from(frame), payload])
+    : Buffer.from(frame);
+  return frame;
+}
 ```
