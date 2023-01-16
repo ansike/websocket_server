@@ -81,7 +81,7 @@ function encodeWsData(data) {
   let frame = [];
   // 转换成buffer
   const payload = data.payloadData ? Buffer.from(data.payloadData) : null;
-  const length = payload.length;
+  const length = payload ? payload.length : 0;
   const isFinal = data.isFinal ?? true;
   const opcode = data.opcode ?? 1;
 

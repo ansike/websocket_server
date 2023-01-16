@@ -25,7 +25,8 @@ app.on("upgrade", (req, socket, head) => {
     const data = decodeWsData(d);
     const content = data.payloadData?.toString();
     console.log(content);
-    socket.write(encodeWsData({ payloadData: `server get data: ${content}` }));
+    // socket.write(encodeWsData({ payloadData: `server get data: ${content}` }));
+    socket.write(encodeWsData({ opcode: 10 }));
   });
 });
 app.listen(8080);
@@ -95,7 +96,7 @@ function encodeWsData(data) {
   let frame = [];
   // 转换成buffer
   const payload = data.payloadData ? Buffer.from(data.payloadData) : null;
-  const length = payload.length;
+  const length = payload ? payload.length : 0;
   const isFinal = data.isFinal ?? true;
   const opcode = data.opcode ?? 1;
 
@@ -111,7 +112,7 @@ function encodeWsData(data) {
   } else if (length < 0xffff) {
     frame.push(126, length >> 8, length & 0xff);
   } else {
-    frame.push(127)
+    frame.push(127);
     for (let i = 7; i >= 0; i--) {
       frame.push(length & ((0xff << (i * 8)) >> (i * 8)));
     }
@@ -119,5 +120,6 @@ function encodeWsData(data) {
   frame = data.payloadData
     ? Buffer.concat([Buffer.from(frame), payload])
     : Buffer.from(frame);
+  console.log(frame);
   return frame;
 }
